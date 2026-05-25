@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MultiPlatformPoster
 
-## Getting Started
+A production-oriented, responsive Next.js admin dashboard for phased social media post scheduling.
 
-First, run the development server:
+## What is included
+
+- Next.js App Router with Tailwind CSS
+- Supabase schema and RLS policy skeleton under `supabase/migrations`
+- Responsive admin dashboard shell for mobile, tablet, and laptop
+- Clean platform adapter interfaces for Meta, LinkedIn, TikTok, and X
+- Mock publishing and n8n webhook client utilities
+- CI workflow for lint, typecheck, and build
+- Initial documentation for n8n workflow setup, production checklist, cost estimate, and roadmap
+
+## Current repository structure
+
+- `app/` — dashboard and page routes
+- `components/` — reusable UI shell and form components
+- `lib/` — Supabase, scheduler, n8n, and platform adapter abstractions
+- `supabase/migrations/` — SQL schema and RLS policies
+- `docs/` — workflow, checklist, cost estimate, and roadmap artifacts
+- `.github/workflows/ci.yml` — GitHub Actions CI
+
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` and set the following values:
 
-## Learn More
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `N8N_WEBHOOK_URL`
+- `N8N_WEBHOOK_SECRET`
+- `WEBHOOK_RATE_LIMIT_PER_MINUTE`
+- `NEXT_PUBLIC_APP_URL`
 
-To learn more about Next.js, take a look at the following resources:
+## Supabase schema
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The initial schema is defined in `supabase/migrations/20260525_initial_schema.sql`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## n8n walkthrough
 
-## Deploy on Vercel
+See `docs/n8n-workflows.md` for the workflow map, payload example, and security notes.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Production checklist
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See `docs/production-checklist.md`.
+
+## Cost estimate
+
+See `docs/cost-estimate.md`.
+
+## Roadmap
+
+See `docs/roadmap.md`.
+
+## Phase notes
+
+- Phase 1: Supabase, n8n, RLS, and webhook orchestration hooks
+- Phase 2: Responsive admin UI and Vercel deployment
+- Phase 3: Replace critical n8n workflow pieces with serverless code while preserving adapter interfaces
+
+## Important implementation note
+
+Platform APIs are intentionally not wired yet. The adapter interfaces and mock publishing path are in place for a clean migration to official APIs later.
