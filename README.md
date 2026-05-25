@@ -71,3 +71,8 @@ See `docs/roadmap.md`.
 ## Important implementation note
 
 Platform APIs are intentionally not wired yet. The adapter interfaces and mock publishing path are in place for a clean migration to official APIs later.
+
+
+## How to build and test
+npm install
+npm run dev
