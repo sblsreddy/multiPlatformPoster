@@ -11,6 +11,18 @@ export interface N8nWebhookResponse {
   webhookUrl?: string;
 }
 
+const DEFAULT_WEBHOOK_TIMEOUT_MS = 1500;
+
+function getWebhookTimeoutMs() {
+  const configuredTimeout = Number(process.env.WEBHOOK_DISPATCH_TIMEOUT_MS);
+
+  if (Number.isFinite(configuredTimeout) && configuredTimeout > 0) {
+    return configuredTimeout;
+  }
+
+  return DEFAULT_WEBHOOK_TIMEOUT_MS;
+}
+
 export async function triggerScheduledWebhook(payload: N8nWebhookPayload): Promise<N8nWebhookResponse> {
   const webhookUrl = process.env.N8N_WEBHOOK_URL;
 
@@ -22,6 +34,10 @@ export async function triggerScheduledWebhook(payload: N8nWebhookPayload): Promi
     };
   }
 
+  const controller = new AbortController();
+  const timeoutMs = getWebhookTimeoutMs();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(webhookUrl, {
       method: "POST",
@@ -30,6 +46,7 @@ export async function triggerScheduledWebhook(payload: N8nWebhookPayload): Promi
         "x-webhook-secret": process.env.N8N_WEBHOOK_SECRET ?? "",
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -46,10 +63,19 @@ export async function triggerScheduledWebhook(payload: N8nWebhookPayload): Promi
       webhookUrl,
     };
   } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? `Webhook timed out after ${timeoutMs}ms`
+        : error instanceof Error
+          ? error.message
+          : "Unknown webhook dispatch error";
+
     return {
       accepted: false,
-      message: error instanceof Error ? error.message : "Unknown webhook dispatch error",
+      message,
       webhookUrl,
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }

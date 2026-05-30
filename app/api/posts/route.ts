@@ -30,24 +30,24 @@ function parseScheduledAt(value: string) {
 }
 
 export async function POST(request: Request) {
-  const user = await getAuthenticatedUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let payload: z.infer<typeof createPostSchema>;
-
   try {
-    payload = createPostSchema.parse(await request.json());
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Invalid request payload." },
-      { status: 400 },
-    );
-  }
+    const user = await getAuthenticatedUser();
 
-  try {
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let payload: z.infer<typeof createPostSchema>;
+
+    try {
+      payload = createPostSchema.parse(await request.json());
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Invalid request payload." },
+        { status: 400 },
+      );
+    }
+
     const organizationId = await getUserOrganizationId(user.id, user.email);
     const scheduledAt = parseScheduledAt(payload.scheduledAt);
     const supabaseAdmin = getSupabaseAdminClient();
@@ -183,6 +183,8 @@ export async function POST(request: Request) {
       message: "Draft saved successfully. Webhook dispatch remains disabled until the post is scheduled.",
     });
   } catch (error) {
+    console.error("POST /api/posts failed", error);
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unexpected post creation failure." },
       { status: 500 },

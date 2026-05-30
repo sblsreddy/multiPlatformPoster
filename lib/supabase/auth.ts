@@ -34,7 +34,7 @@ export async function getUserOrganizationId(userId: string, email?: string | nul
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (membershipResponse.data?.organization_id) {
-    await supabaseAdmin
+    const profileUpsertResponse = await supabaseAdmin
       .from("profiles")
       .upsert(
         {
@@ -45,6 +45,10 @@ export async function getUserOrganizationId(userId: string, email?: string | nul
         { onConflict: "id" },
       );
 
+    if (profileUpsertResponse.error) {
+      throw profileUpsertResponse.error;
+    }
+
     return membershipResponse.data.organization_id;
   }
 
@@ -53,11 +57,14 @@ export async function getUserOrganizationId(userId: string, email?: string | nul
 
   const organizationResponse = await supabaseAdmin
     .from("organizations")
-    .insert({
-      slug,
-      name: displayName,
-      owner_user_id: userId,
-    })
+    .upsert(
+      {
+        slug,
+        name: displayName,
+        owner_user_id: userId,
+      },
+      { onConflict: "slug" },
+    )
     .select("id")
     .single();
 
@@ -65,7 +72,7 @@ export async function getUserOrganizationId(userId: string, email?: string | nul
     throw organizationResponse.error ?? new Error("Unable to create organization.");
   }
 
-  await supabaseAdmin.from("profiles").upsert(
+  const profileUpsertResponse = await supabaseAdmin.from("profiles").upsert(
     {
       id: userId,
       organization_id: organizationResponse.data.id,
@@ -74,11 +81,22 @@ export async function getUserOrganizationId(userId: string, email?: string | nul
     { onConflict: "id" },
   );
 
-  await supabaseAdmin.from("organization_members").insert({
-    organization_id: organizationResponse.data.id,
-    user_id: userId,
-    role: "owner",
-  });
+  if (profileUpsertResponse.error) {
+    throw profileUpsertResponse.error;
+  }
+
+  const membershipUpsertResponse = await supabaseAdmin.from("organization_members").upsert(
+    {
+      organization_id: organizationResponse.data.id,
+      user_id: userId,
+      role: "owner",
+    },
+    { onConflict: "organization_id,user_id" },
+  );
+
+  if (membershipUpsertResponse.error) {
+    throw membershipUpsertResponse.error;
+  }
 
   return organizationResponse.data.id;
 }
