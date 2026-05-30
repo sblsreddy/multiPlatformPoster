@@ -16,6 +16,9 @@ export interface PlatformPublishResult {
   providerMessage: string;
   requestId: string;
   responseCode: number;
+  providerId?: string;
+  rawResponse?: unknown;
+  errorMessage?: string;
 }
 
 export interface PlatformAdapter {
