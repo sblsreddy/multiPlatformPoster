@@ -8,7 +8,8 @@ A production-oriented, responsive Next.js admin dashboard for phased social medi
 - Supabase schema and RLS policy skeleton under `supabase/migrations`
 - Responsive admin dashboard shell for mobile, tablet, and laptop
 - Clean platform adapter interfaces for Meta, LinkedIn, TikTok, and X
-- Mock publishing and n8n webhook client utilities
+- Real Facebook Page feed publishing adapter plus mock adapters for remaining platforms
+- n8n webhook client utilities
 - CI workflow for lint, typecheck, and build
 - Initial documentation for n8n workflow setup, production checklist, cost estimate, and roadmap
 
@@ -41,6 +42,9 @@ Copy `.env.example` and set the following values:
 - `N8N_WEBHOOK_SECRET`
 - `WEBHOOK_RATE_LIMIT_PER_MINUTE`
 - `NEXT_PUBLIC_APP_URL`
+- `FACEBOOK_PAGE_ID`
+- `FACEBOOK_PAGE_ACCESS_TOKEN`
+- `META_GRAPH_API_VERSION`
 
 ## Supabase schema
 
@@ -48,7 +52,7 @@ The initial schema is defined in `supabase/migrations/20260525_initial_schema.sq
 
 ## n8n walkthrough
 
-See `docs/n8n-workflows.md` for the workflow map, payload example, and security notes.
+See `docs/n8n-workflows.md` for the workflow map, payload example, and security notes. For direct server-side testing, authenticated users can call `POST /api/posts/{id}/publish` after setting the Facebook environment variables.
 
 ## Production checklist
 
@@ -70,7 +74,7 @@ See `docs/roadmap.md`.
 
 ## Important implementation note
 
-Platform APIs are intentionally not wired yet. The adapter interfaces and mock publishing path are in place for a clean migration to official APIs later.
+Facebook Page feed publishing is wired through the server-side Meta adapter. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` with a Page access token that has Page publishing permissions. Other platform adapters remain mocked until their official provider API work is completed.
 
 
 ## How to build and test
