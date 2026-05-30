@@ -18,7 +18,7 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-type SaveMode = "draft" | "scheduled";
+type SubmitMode = "draft" | "scheduled" | "publishNow";
 
 type FeedbackState = {
   type: "success" | "error";
@@ -27,7 +27,7 @@ type FeedbackState = {
 
 export function ScheduledPostForm() {
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
-  const [saveMode, setSaveMode] = useState<SaveMode>("scheduled");
+  const [activeMode, setActiveMode] = useState<SubmitMode | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -78,7 +78,7 @@ export function ScheduledPostForm() {
     return payload;
   };
 
-  const createPost = async (values: FormValues, mediaAssetId: string | null) => {
+  const createPost = async (values: FormValues, mediaAssetId: string | null, mode: SubmitMode) => {
     const response = await fetch("/api/posts", {
       method: "POST",
       headers: {
@@ -91,7 +91,8 @@ export function ScheduledPostForm() {
         timezone: values.timezone,
         scheduledAt: values.scheduledAt,
         selectedPlatforms: values.platforms,
-        status: saveMode,
+        status: mode === "draft" ? "draft" : "scheduled",
+        dispatchWebhook: mode === "scheduled",
         mediaAssetId,
       }),
     });
@@ -105,8 +106,32 @@ export function ScheduledPostForm() {
     return payload;
   };
 
-  const onSubmit = async (values: FormValues) => {
+  const publishPost = async (scheduledPostId: string) => {
+    const response = await fetch(`/api/posts/${scheduledPostId}/publish`, {
+      method: "POST",
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Failed to publish post.");
+    }
+
+    return payload;
+  };
+
+  const formatPublishMessage = (payload: { status?: string; results?: Array<{ platform: string; providerMessage: string }> }) => {
+    const resultSummary = payload.results
+      ?.map((result) => `${result.platform}: ${result.providerMessage}`)
+      .join(" ");
+
+    return resultSummary
+      ? `Publish finished with status '${payload.status}'. ${resultSummary}`
+      : `Publish finished with status '${payload.status ?? "unknown"}'.`;
+  };
+
+  const onSubmit = async (values: FormValues, mode: SubmitMode = "scheduled") => {
     setFeedback(null);
+    setActiveMode(mode);
 
     try {
       let mediaAssetId: string | null = null;
@@ -116,13 +141,23 @@ export function ScheduledPostForm() {
         mediaAssetId = uploadResponse.assetId;
       }
 
-      const postResponse = await createPost(values, mediaAssetId);
+      const postResponse = await createPost(values, mediaAssetId, mode);
+
+      if (mode === "publishNow") {
+        const publishResponse = await publishPost(postResponse.scheduledPostId);
+
+        setFeedback({
+          type: publishResponse.status === "published" ? "success" : "error",
+          message: formatPublishMessage(publishResponse),
+        });
+        return;
+      }
 
       setFeedback({
         type: "success",
         message:
           postResponse.message ||
-          (saveMode === "scheduled"
+          (mode === "scheduled"
             ? "Scheduled post saved and webhook dispatch was requested."
             : "Draft saved successfully."),
       });
@@ -131,6 +166,8 @@ export function ScheduledPostForm() {
         type: "error",
         message: error instanceof Error ? error.message : "Unexpected error while saving post.",
       });
+    } finally {
+      setActiveMode(null);
     }
   };
 
@@ -152,7 +189,7 @@ export function ScheduledPostForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit((values) => onSubmit(values, "scheduled"))} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block text-sm font-medium text-slate-100">
           Post title
@@ -265,20 +302,27 @@ export function ScheduledPostForm() {
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          type="submit"
+          type="button"
           disabled={isSubmitting}
-          onClick={() => setSaveMode("draft")}
+          onClick={() => void handleSubmit((values) => onSubmit(values, "draft"))()}
           className="rounded-full bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting && saveMode === "draft" ? "Saving..." : "Save draft"}
+          {isSubmitting && activeMode === "draft" ? "Saving..." : "Save draft"}
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          onClick={() => setSaveMode("scheduled")}
           className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting && saveMode === "scheduled" ? "Scheduling..." : "Save as scheduled"}
+          {isSubmitting && activeMode === "scheduled" ? "Scheduling..." : "Save as scheduled"}
+        </button>
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={() => void handleSubmit((values) => onSubmit(values, "publishNow"))()}
+          className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isSubmitting && activeMode === "publishNow" ? "Publishing..." : "Publish now"}
         </button>
       </div>
 

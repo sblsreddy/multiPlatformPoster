@@ -7,7 +7,7 @@ This repository includes stubbed workflow hooks for a phased rollout.
 1. Receive scheduled post webhook from the Next.js app.
 2. Validate the payload and ensure the post is still in a schedulable state.
 3. Wait until the published `scheduled_at` timestamp.
-4. Publish to each selected platform using official provider APIs. Facebook Page feed publishing can also be exercised by calling the app route `POST /api/posts/{id}/publish`, which records `platform_results`.
+4. Publish to each selected platform using official provider APIs. Facebook Page feed publishing can also be exercised with the scheduled post form's **Publish now** action or by calling the app route `POST /api/posts/{id}/publish`, which records `platform_results`.
 5. Update Supabase with `publishing`, `published`, or `failed` state.
 6. Retry with exponential backoff for failed posts.
 7. Send failure notifications to the configured Slack, email, or pager target.
@@ -71,6 +71,7 @@ This repository includes stubbed workflow hooks for a phased rollout.
 ## Security notes
 
 - Keep all provider tokens in n8n credential storage when n8n owns publishing. For direct server-side Facebook testing, keep `FACEBOOK_PAGE_ACCESS_TOKEN` only in server environment variables.
+- A failed or unavailable n8n webhook should not block local direct publishing tests. The app records webhook dispatch failures while keeping the scheduled post available for the direct publisher route.
 - Validate signatures in the webhook receiver.
 - Use least-privilege Supabase role access and RLS.
 - Record every publish attempt and error in `publish_attempts` and `platform_results`.

@@ -52,7 +52,7 @@ The initial schema is defined in `supabase/migrations/20260525_initial_schema.sq
 
 ## n8n walkthrough
 
-See `docs/n8n-workflows.md` for the workflow map, payload example, and security notes. For direct server-side testing, authenticated users can call `POST /api/posts/{id}/publish` after setting the Facebook environment variables.
+See `docs/n8n-workflows.md` for the workflow map, payload example, and security notes. For direct server-side testing, use the scheduled post form's **Publish now** action or call `POST /api/posts/{id}/publish` after setting the Facebook environment variables.
 
 ## Production checklist
 
@@ -74,7 +74,7 @@ See `docs/roadmap.md`.
 
 ## Important implementation note
 
-Facebook Page feed publishing is wired through the server-side Meta adapter. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` with a Page access token that has Page publishing permissions. Other platform adapters remain mocked until their official provider API work is completed.
+Facebook Page feed publishing is wired through the server-side Meta adapter. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` with a Page access token that has Page publishing permissions. The scheduled post form's **Publish now** action saves the post without dispatching n8n and then calls the direct server-side publisher. Other platform adapters remain mocked until their official provider API work is completed.
 
 
 ## How to build and test
