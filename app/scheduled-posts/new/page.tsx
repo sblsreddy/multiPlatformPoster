@@ -12,13 +12,14 @@ export default function NewScheduledPostPage() {
           <div>
             <h3 className="text-lg font-semibold text-white">Post details</h3>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              This form uses React Hook Form and Zod for validation. The submit handler is currently in mock mode so the UI can be
-              exercised while real Supabase and n8n wiring is completed.
+              This form validates the post, uploads media to Supabase Storage, stores the media asset ID with the scheduled post,
+              and can publish directly to Facebook for end-to-end testing.
             </p>
           </div>
 
           <div className="rounded-2xl border border-dashed border-cyan-300/40 bg-cyan-400/10 p-4 text-sm text-cyan-100">
-            Media upload, storage integration, and publish attempt tracking will be added in the next phase.
+            Facebook image posts use the attached Supabase media asset: the server downloads the private storage object and sends
+            it to Meta Graph API as a Page photo post.
           </div>
         </div>
 

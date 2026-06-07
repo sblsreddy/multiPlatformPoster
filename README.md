@@ -8,7 +8,7 @@ A production-oriented, responsive Next.js admin dashboard for phased social medi
 - Supabase schema and RLS policy skeleton under `supabase/migrations`
 - Responsive admin dashboard shell for mobile, tablet, and laptop
 - Clean platform adapter interfaces for Meta, LinkedIn, TikTok, and X
-- Real Facebook Page feed publishing adapter plus mock adapters for remaining platforms
+- Real Facebook Page feed and image publishing adapter plus mock adapters for remaining platforms
 - n8n webhook client utilities
 - CI workflow for lint, typecheck, and build
 - Initial documentation for n8n workflow setup, production checklist, cost estimate, and roadmap
@@ -74,7 +74,17 @@ See `docs/roadmap.md`.
 
 ## Important implementation note
 
-Facebook Page feed publishing is wired through the server-side Meta adapter. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` with a Page access token that has Page publishing permissions. The scheduled post form's **Publish now** action saves the post without dispatching n8n and then calls the direct server-side publisher. Other platform adapters remain mocked until their official provider API work is completed.
+Facebook Page publishing is wired through the server-side Meta adapter. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` with a Page access token that has Page publishing permissions. Text-only posts use the Page feed endpoint; posts with an attached Supabase image use the Page photos endpoint. The publish route downloads the private Supabase Storage object on the server and uploads the binary image to Meta, so the `media` bucket can remain private.
+
+To test the Supabase-to-Facebook image flow:
+
+1. Sign in to the app and open **Scheduled posts → Create scheduled post**.
+2. Choose an image file in **Ad image or video**.
+3. Select **Facebook** as one of the platforms.
+4. Click **Publish now**. The app uploads the image through `POST /api/media/upload`, saves the returned `mediaAssetId` on the scheduled post, then calls `POST /api/posts/{id}/publish`.
+5. Confirm the publish result says `Facebook Page photo post published successfully`. If Meta returns a permissions or token error, verify the Page access token, Page ID, and app review permissions before retrying.
+
+Other platform adapters remain mocked until their official provider API work is completed.
 
 
 ## How to build and test
