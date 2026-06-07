@@ -52,6 +52,22 @@ export async function POST(request: Request) {
     const scheduledAt = parseScheduledAt(payload.scheduledAt);
     const supabaseAdmin = getSupabaseAdminClient();
 
+    if (payload.mediaAssetId) {
+      const mediaResponse = await supabaseAdmin
+        .from("media_assets")
+        .select("id")
+        .eq("id", payload.mediaAssetId)
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (mediaResponse.error || !mediaResponse.data) {
+        return NextResponse.json(
+          { error: mediaResponse.error?.message || "Attached media asset was not found for this organization." },
+          { status: 400 },
+        );
+      }
+    }
+
     const postResponse = await supabaseAdmin
       .from("scheduled_posts")
       .insert({
@@ -77,6 +93,23 @@ export async function POST(request: Request) {
         { error: postResponse.error?.message || "Unable to create scheduled post." },
         { status: 500 },
       );
+    }
+
+    if (payload.mediaAssetId) {
+      const mediaLinkResponse = await supabaseAdmin
+        .from("media_assets")
+        .update({ scheduled_post_id: postResponse.data.id })
+        .eq("id", payload.mediaAssetId)
+        .eq("organization_id", organizationId)
+        .select("id")
+        .single();
+
+      if (mediaLinkResponse.error || !mediaLinkResponse.data) {
+        return NextResponse.json(
+          { error: mediaLinkResponse.error?.message || "Unable to attach media asset to scheduled post." },
+          { status: 500 },
+        );
+      }
     }
 
     if (payload.status === "scheduled" && payload.dispatchWebhook) {
@@ -120,6 +153,7 @@ export async function POST(request: Request) {
           scheduledPostId: postResponse.data.id,
           organizationId,
           selectedPlatforms: payload.selectedPlatforms,
+          mediaAssetId: payload.mediaAssetId ?? null,
         },
         signature: process.env.N8N_WEBHOOK_SECRET ?? null,
         status: webhookStatus,
