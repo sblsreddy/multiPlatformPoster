@@ -74,7 +74,7 @@ See `docs/roadmap.md`.
 
 ## Important implementation note
 
-Facebook Page publishing is wired through the server-side Meta adapter. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` with a Page access token that has Page publishing permissions. Text-only posts use the Page feed endpoint. Posts with an attached Supabase image now upload the private image to the Page photos endpoint as an unpublished photo first, then create the visible Page feed post with `attached_media[0]`, so the final Facebook post appears in the feed with the image attached while the Supabase `media` bucket remains private.
+Facebook Page publishing is wired through the server-side Meta adapter. Set `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` with a Page access token that has Page publishing permissions. Text-only posts use the Page feed endpoint; posts with an attached Supabase image use the Page photos endpoint. The publish route downloads the private Supabase Storage object on the server and uploads the binary image to Meta, so the `media` bucket can remain private.
 
 To test the Supabase-to-Facebook image flow:
 
@@ -82,7 +82,7 @@ To test the Supabase-to-Facebook image flow:
 2. Choose an image file in **Ad image or video**.
 3. Select **Facebook** as one of the platforms.
 4. Click **Publish now**. The app uploads the image through `POST /api/media/upload`, saves the returned `mediaAssetId` on the scheduled post, then calls `POST /api/posts/{id}/publish`.
-5. Confirm the publish result says `Facebook Page feed post with image published successfully`. If Meta returns a permissions or token error, verify the Page access token, Page ID, and app review permissions before retrying.
+5. Confirm the publish result says `Facebook Page photo post published successfully`. If Meta returns a permissions or token error, verify the Page access token, Page ID, and app review permissions before retrying.
 
 Other platform adapters remain mocked until their official provider API work is completed.
 

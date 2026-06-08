@@ -15,11 +15,7 @@ interface FacebookFeedResponse extends MetaErrorResponse {
   post_id?: string;
 }
 
-interface FacebookPhotoUploadResponse extends MetaErrorResponse {
-  id?: string;
-}
-
-interface FacebookPhotoFeedResponse extends MetaErrorResponse {
+interface FacebookPhotoResponse extends MetaErrorResponse {
   id?: string;
   post_id?: string;
 }
@@ -123,55 +119,6 @@ async function publishFacebookFeedPost(message: string): Promise<PlatformPublish
   };
 }
 
-async function uploadFacebookPhotoForFeed(mediaAsset: PublishMediaAsset) {
-  const pageId = getRequiredEnv("FACEBOOK_PAGE_ID");
-  const pageAccessToken = getRequiredEnv("FACEBOOK_PAGE_ACCESS_TOKEN");
-  const graphVersion = getMetaGraphVersion();
-  const endpoint = `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/photos`;
-  const formData = new FormData();
-
-  formData.set("published", "false");
-  formData.set("access_token", pageAccessToken);
-  formData.set("source", new Blob([mediaAsset.data], { type: mediaAsset.mimeType }), mediaAsset.fileName);
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    body: formData,
-  });
-  const responseBody = await readMetaJson<FacebookPhotoUploadResponse>(response);
-
-  return {
-    response,
-    responseBody,
-  };
-}
-
-async function publishFacebookFeedPostWithPhoto(message: string, photoId: string) {
-  const pageId = getRequiredEnv("FACEBOOK_PAGE_ID");
-  const pageAccessToken = getRequiredEnv("FACEBOOK_PAGE_ACCESS_TOKEN");
-  const graphVersion = getMetaGraphVersion();
-  const endpoint = `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/feed`;
-  const body = new URLSearchParams({
-    message,
-    "attached_media[0]": JSON.stringify({ media_fbid: photoId }),
-    access_token: pageAccessToken,
-  });
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body,
-  });
-  const responseBody = await readMetaJson<FacebookPhotoFeedResponse>(response);
-
-  return {
-    response,
-    responseBody,
-  };
-}
-
 async function publishFacebookPhotoPost(message: string, mediaAsset: PublishMediaAsset): Promise<PlatformPublishResult> {
   if (!mediaAsset.mimeType.startsWith("image/")) {
     const providerMessage = `Facebook image publishing only supports image assets. '${mediaAsset.fileName}' is ${mediaAsset.mimeType}.`;
@@ -190,88 +137,44 @@ async function publishFacebookPhotoPost(message: string, mediaAsset: PublishMedi
     };
   }
 
-  if (mediaAsset.data.byteLength === 0) {
-    const providerMessage = `Facebook image publishing cannot upload '${mediaAsset.fileName}' because the Supabase file is empty.`;
+  const pageId = getRequiredEnv("FACEBOOK_PAGE_ID");
+  const pageAccessToken = getRequiredEnv("FACEBOOK_PAGE_ACCESS_TOKEN");
+  const graphVersion = getMetaGraphVersion();
+  const endpoint = `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/photos`;
+  const formData = new FormData();
 
-    return {
-      platform: "facebook",
-      status: "failed",
-      providerMessage,
-      requestId: `facebook-empty-media-${Date.now()}`,
-      responseCode: 400,
-      errorMessage: providerMessage,
-      rawResponse: {
-        mediaAssetId: mediaAsset.id,
-        storagePath: mediaAsset.storagePath,
-      },
-    };
+  formData.set("message", message);
+  formData.set("published", "true");
+  formData.set("access_token", pageAccessToken);
+  formData.set("source", new Blob([mediaAsset.data], { type: mediaAsset.mimeType }), mediaAsset.fileName);
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    body: formData,
+  });
+  const responseBody = await readMetaJson<FacebookPhotoResponse>(response);
+
+  if (!response.ok || responseBody.error) {
+    return createFacebookFailure(responseBody, response.status, `Facebook photo upload returned HTTP ${response.status}.`, {
+      ...responseBody,
+      mediaAssetId: mediaAsset.id,
+    });
   }
 
-  const uploadResult = await uploadFacebookPhotoForFeed(mediaAsset);
-
-  if (!uploadResult.response.ok || uploadResult.responseBody.error) {
-    return createFacebookFailure(
-      uploadResult.responseBody,
-      uploadResult.response.status,
-      `Facebook photo upload returned HTTP ${uploadResult.response.status}.`,
-      {
-        ...uploadResult.responseBody,
-        mediaAssetId: mediaAsset.id,
-        storagePath: mediaAsset.storagePath,
-      },
-    );
-  }
-
-  if (!uploadResult.responseBody.id) {
-    const providerMessage = "Facebook photo upload succeeded but did not return a photo ID to attach to the Page feed post.";
-
-    return {
-      platform: "facebook",
-      status: "failed",
-      providerMessage,
-      requestId: `facebook-missing-photo-id-${Date.now()}`,
-      responseCode: uploadResult.response.status,
-      errorMessage: providerMessage,
-      rawResponse: {
-        ...uploadResult.responseBody,
-        mediaAssetId: mediaAsset.id,
-        storagePath: mediaAsset.storagePath,
-      },
-    };
-  }
-
-  const feedResult = await publishFacebookFeedPostWithPhoto(message, uploadResult.responseBody.id);
-
-  if (!feedResult.response.ok || feedResult.responseBody.error) {
-    return createFacebookFailure(
-      feedResult.responseBody,
-      feedResult.response.status,
-      `Facebook feed post with attached photo returned HTTP ${feedResult.response.status}.`,
-      {
-        ...feedResult.responseBody,
-        uploadedPhotoId: uploadResult.responseBody.id,
-        mediaAssetId: mediaAsset.id,
-        storagePath: mediaAsset.storagePath,
-      },
-    );
-  }
-
-  const providerId = feedResult.responseBody.post_id ?? feedResult.responseBody.id;
+  const providerId = responseBody.post_id ?? responseBody.id;
 
   return {
     platform: "facebook",
     status: "published",
     providerMessage: providerId
-      ? `Facebook Page feed post with image published successfully as ${providerId}.`
-      : "Facebook Page feed post with image published successfully.",
-    requestId: providerId ?? `facebook-photo-feed-${Date.now()}`,
-    responseCode: feedResult.response.status,
+      ? `Facebook Page photo post published successfully as ${providerId}.`
+      : "Facebook Page photo post published successfully.",
+    requestId: providerId ?? `facebook-photo-${Date.now()}`,
+    responseCode: response.status,
     providerId,
     rawResponse: {
-      ...feedResult.responseBody,
-      uploadedPhotoId: uploadResult.responseBody.id,
+      ...responseBody,
       mediaAssetId: mediaAsset.id,
-      storagePath: mediaAsset.storagePath,
     },
   };
 }
