@@ -146,7 +146,12 @@ async function publishFacebookPhotoPost(message: string, mediaAsset: PublishMedi
   formData.set("message", message);
   formData.set("published", "true");
   formData.set("access_token", pageAccessToken);
-  formData.set("source", new Blob([mediaAsset.data], { type: mediaAsset.mimeType }), mediaAsset.fileName);
+
+  if (mediaAsset.publicUrl) {
+    formData.set("url", mediaAsset.publicUrl);
+  } else {
+    formData.set("source", new Blob([mediaAsset.data], { type: mediaAsset.mimeType }), mediaAsset.fileName);
+  }
 
   const response = await fetch(endpoint, {
     method: "POST",

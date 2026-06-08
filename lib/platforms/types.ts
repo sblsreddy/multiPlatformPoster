@@ -9,6 +9,7 @@ export interface PublishMediaAsset {
   sizeBytes: number;
   storagePath: string;
   data: ArrayBuffer;
+  publicUrl?: string;
 }
 
 export interface PlatformPublishRequest {
