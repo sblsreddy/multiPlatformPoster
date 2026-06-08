@@ -16,6 +16,7 @@ export type DashboardPost = {
   title: string;
   status: string;
   scheduledAt: string | null;
+  createdAt: string | null;
   timezone: string | null;
   location: string | null;
   selectedPlatforms: string[];
@@ -180,7 +181,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       supabase
         .from("scheduled_posts")
         .select(
-          "id, title, status, scheduled_at, timezone, location, selected_platforms, last_error, publish_attempts, campaign_id",
+          "id, title, status, scheduled_at, created_at, timezone, location, selected_platforms, last_error, publish_attempts, campaign_id",
         )
         .eq("organization_id", organizationId)
         .order("scheduled_at", { ascending: true }),
@@ -220,11 +221,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       title: getString(post.title),
       status: getString(post.status),
       scheduledAt: formatDate(post.scheduled_at),
-      timezone: getNullableString(post.timezone),
-      location: getNullableString(post.location),
-      selectedPlatforms: getArray(post.selected_platforms),
-      lastError: getNullableString(post.last_error),
-      publishAttempts: getNumber(post.publish_attempts),
+      createdAt: formatDate(post.created_at),
       campaignId: getNullableString(post.campaign_id),
       campaignName: null,
     }) as DashboardPost);

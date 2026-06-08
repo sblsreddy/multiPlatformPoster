@@ -12,8 +12,7 @@ export default function NewScheduledPostPage() {
           <div>
             <h3 className="text-lg font-semibold text-white">Post details</h3>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              This form validates the post, uploads media to Supabase Storage, stores the media asset ID with the scheduled post,
-              and can publish directly to Facebook for end-to-end testing.
+              This form validates the post, uploads media to Supabase Storage, and stores the media asset ID with the scheduled post.
             </p>
           </div>
 

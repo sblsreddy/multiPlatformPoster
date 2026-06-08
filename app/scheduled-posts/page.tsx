@@ -39,7 +39,14 @@ export default async function ScheduledPostsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm uppercase tracking-[0.3em] text-cyan-200">{post.status}</p>
-                    <h3 className="mt-2 text-lg font-semibold text-white">{post.title}</h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <h3 className="text-lg font-semibold text-white">{post.title}</h3>
+                      {post.createdAt ? (
+                        <span className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                          created {post.createdAt}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="text-sm text-slate-300">
                     <p>{formatDisplayDate(post.scheduledAt)}</p>

@@ -93,7 +93,7 @@ export function ScheduledPostForm() {
         selectedPlatforms: values.platforms,
         status: mode === "draft" ? "draft" : "scheduled",
         dispatchWebhook: mode === "scheduled",
-        mediaAssetId,
+        mediaAssetId: mediaAssetId ?? null,
       }),
     });
 

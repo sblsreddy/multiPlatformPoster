@@ -91,7 +91,11 @@ export default async function DashboardPage() {
                     <p className="text-sm text-slate-300">{formatDisplayDate(post.scheduledAt)}</p>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-200">
-                    <span className="rounded-full border border-white/10 px-3 py-1">{post.selectedPlatforms.join(", ") || "No platforms"}</span>
+                    <span className="rounded-full border border-white/10 px-3 py-1">
+                      {Array.isArray(post.selectedPlatforms) && post.selectedPlatforms.length > 0
+                        ? post.selectedPlatforms.join(", ")
+                        : "No platforms"}
+                    </span>
                     <span className="rounded-full border border-white/10 px-3 py-1">{post.publishAttempts} attempts</span>
                     {post.lastError ? <span className="rounded-full border border-rose-400/60 px-3 py-1 text-rose-100">{post.lastError}</span> : null}
                   </div>

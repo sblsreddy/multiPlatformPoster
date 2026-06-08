@@ -143,6 +143,7 @@ async function publishFacebookPhotoPost(message: string, mediaAsset: PublishMedi
   const endpoint = `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/photos`;
   const formData = new FormData();
 
+  formData.set("caption", message);
   formData.set("message", message);
   formData.set("published", "true");
   formData.set("access_token", pageAccessToken);

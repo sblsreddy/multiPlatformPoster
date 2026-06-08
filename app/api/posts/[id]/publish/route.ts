@@ -152,6 +152,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     const mediaAssets = await loadPublishMediaAssets(supabaseAdmin, organizationId, post.id, mediaAssetId);
     const attachedMediaAssetId = mediaAssets[0]?.id ?? mediaAssetId;
     const mediaUrls = mediaAssets.flatMap((mediaAsset) => mediaAsset.publicUrl ? [mediaAsset.publicUrl] : []);
+
     const attemptNumber = post.publish_attempts + 1;
     const attemptResponse = await supabaseAdmin
       .from("publish_attempts")

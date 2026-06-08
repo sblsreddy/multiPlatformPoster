@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "cleanup:old-data": "node scripts/cleanup-old-data.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
