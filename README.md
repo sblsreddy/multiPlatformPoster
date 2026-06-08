@@ -90,3 +90,26 @@ Other platform adapters remain mocked until their official provider API work is 
 ## How to build and test
 npm install
 npm run dev
+
+
+
+## How to delete the package-lock.json, node_modules folder to build and test
+
+# 1. Complete cleanup
+rm -rf node_modules package-lock.json
+rm -rf ~/.npm/_logs/*
+npm cache clean --force
+
+# 2. Pull latest package.json
+git pull
+
+# 3. Fresh install
+npm install
+
+# 4. Verify build works
+npm run build
+
+# 5. If successful, commit the generated package-lock.json
+git add package-lock.json
+git commit -m "chore: generate package-lock.json with resolved dependencies"
+git push
