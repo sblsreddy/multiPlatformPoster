@@ -30,31 +30,67 @@ function getMediaAssetId(metadata: Record<string, unknown> | null) {
   return typeof mediaAssetId === "string" && mediaAssetId.length > 0 ? mediaAssetId : null;
 }
 
+async function findPublishMediaAsset(
+  supabaseAdmin: ReturnType<typeof getSupabaseAdminClient>,
+  organizationId: string,
+  scheduledPostId: string,
+  mediaAssetId: string | null,
+): Promise<MediaAssetRecord | null> {
+  const baseQuery = () =>
+    supabaseAdmin
+      .from("media_assets")
+      .select("id, file_name, storage_path, mime_type, size_bytes")
+      .eq("organization_id", organizationId);
+
+  if (mediaAssetId) {
+    const mediaResponse = await baseQuery().eq("id", mediaAssetId).maybeSingle();
+
+    if (mediaResponse.error) {
+      throw new Error(mediaResponse.error.message || "Attached media asset was not found.");
+    }
+
+    if (mediaResponse.data) {
+      return mediaResponse.data as MediaAssetRecord;
+    }
+  }
+
+  const linkedMediaResponse = await baseQuery()
+    .eq("scheduled_post_id", scheduledPostId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (linkedMediaResponse.error) {
+    throw new Error(linkedMediaResponse.error.message || "Unable to load linked media asset.");
+  }
+
+  return linkedMediaResponse.data ? (linkedMediaResponse.data as MediaAssetRecord) : null;
+}
+
 async function loadPublishMediaAssets(
   supabaseAdmin: ReturnType<typeof getSupabaseAdminClient>,
   organizationId: string,
+  scheduledPostId: string,
   mediaAssetId: string | null,
 ): Promise<PublishMediaAsset[]> {
-  if (!mediaAssetId) {
+  const mediaAsset = await findPublishMediaAsset(supabaseAdmin, organizationId, scheduledPostId, mediaAssetId);
+
+  if (!mediaAsset) {
     return [];
   }
 
-  const mediaResponse = await supabaseAdmin
-    .from("media_assets")
-    .select("id, file_name, storage_path, mime_type, size_bytes")
-    .eq("id", mediaAssetId)
-    .eq("organization_id", organizationId)
-    .single();
-
-  if (mediaResponse.error || !mediaResponse.data) {
-    throw new Error(mediaResponse.error?.message || "Attached media asset was not found.");
-  }
-
-  const mediaAsset = mediaResponse.data as MediaAssetRecord;
-  const downloadResponse = await supabaseAdmin.storage.from("media").download(mediaAsset.storage_path);
+  const mediaBucket = supabaseAdmin.storage.from("media");
+  const [downloadResponse, signedUrlResponse] = await Promise.all([
+    mediaBucket.download(mediaAsset.storage_path),
+    mediaBucket.createSignedUrl(mediaAsset.storage_path, 60 * 60),
+  ]);
 
   if (downloadResponse.error || !downloadResponse.data) {
     throw new Error(downloadResponse.error?.message || "Unable to download attached media from Supabase Storage.");
+  }
+
+  if (signedUrlResponse.error) {
+    throw new Error(signedUrlResponse.error.message || "Unable to create a Supabase media URL for publishing.");
   }
 
   return [
@@ -65,6 +101,7 @@ async function loadPublishMediaAssets(
       sizeBytes: mediaAsset.size_bytes,
       storagePath: mediaAsset.storage_path,
       data: await downloadResponse.data.arrayBuffer(),
+      publicUrl: signedUrlResponse.data.signedUrl,
     },
   ];
 }
@@ -111,6 +148,10 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       );
     }
 
+    const mediaAssetId = getMediaAssetId(post.metadata);
+    const mediaAssets = await loadPublishMediaAssets(supabaseAdmin, organizationId, post.id, mediaAssetId);
+    const attachedMediaAssetId = mediaAssets[0]?.id ?? mediaAssetId;
+    const mediaUrls = mediaAssets.flatMap((mediaAsset) => mediaAsset.publicUrl ? [mediaAsset.publicUrl] : []);
     const attemptNumber = post.publish_attempts + 1;
     const attemptResponse = await supabaseAdmin
       .from("publish_attempts")
@@ -123,7 +164,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           source: "server-publisher",
           selectedPlatforms: post.selected_platforms,
           scheduledAt: post.scheduled_at,
-          mediaAssetId: getMediaAssetId(post.metadata),
+          mediaAssetId: attachedMediaAssetId,
+          mediaUrls,
         },
       })
       .select("id")
@@ -141,18 +183,13 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       .update({ status: "publishing", publish_attempts: attemptNumber, last_error: null })
       .eq("id", post.id);
 
-    const mediaAssets = await loadPublishMediaAssets(
-      supabaseAdmin,
-      organizationId,
-      getMediaAssetId(post.metadata),
-    );
-
     const results = await publishToSelectedPlatforms({
       id: post.id,
       message: post.message,
       scheduledAt: post.scheduled_at,
       selectedPlatforms: post.selected_platforms,
       mediaAssets,
+      mediaUrls,
       location: post.location ?? undefined,
     });
 
@@ -187,7 +224,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           source: "server-publisher",
           selectedPlatforms: post.selected_platforms,
           scheduledAt: post.scheduled_at,
-          mediaAssetId: getMediaAssetId(post.metadata),
+          mediaAssetId: attachedMediaAssetId,
+          mediaUrls,
           results,
         },
       })
