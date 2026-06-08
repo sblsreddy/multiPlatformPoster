@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser, getUserOrganizationId } from "@/lib/supabase/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { publishToSelectedPlatforms } from "@/lib/platforms/publisher";
-import type { PlatformName, PlatformPublishResult } from "@/lib/platforms/types";
+import type { PlatformName, PlatformPublishResult, PublishMediaAsset } from "@/lib/platforms/types";
 
 interface ScheduledPostRecord {
   id: string;
@@ -14,6 +14,59 @@ interface ScheduledPostRecord {
   status: string;
   publish_attempts: number;
   metadata: Record<string, unknown> | null;
+}
+
+interface MediaAssetRecord {
+  id: string;
+  file_name: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+}
+
+function getMediaAssetId(metadata: Record<string, unknown> | null) {
+  const mediaAssetId = metadata?.mediaAssetId;
+
+  return typeof mediaAssetId === "string" && mediaAssetId.length > 0 ? mediaAssetId : null;
+}
+
+async function loadPublishMediaAssets(
+  supabaseAdmin: ReturnType<typeof getSupabaseAdminClient>,
+  organizationId: string,
+  mediaAssetId: string | null,
+): Promise<PublishMediaAsset[]> {
+  if (!mediaAssetId) {
+    return [];
+  }
+
+  const mediaResponse = await supabaseAdmin
+    .from("media_assets")
+    .select("id, file_name, storage_path, mime_type, size_bytes")
+    .eq("id", mediaAssetId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (mediaResponse.error || !mediaResponse.data) {
+    throw new Error(mediaResponse.error?.message || "Attached media asset was not found.");
+  }
+
+  const mediaAsset = mediaResponse.data as MediaAssetRecord;
+  const downloadResponse = await supabaseAdmin.storage.from("media").download(mediaAsset.storage_path);
+
+  if (downloadResponse.error || !downloadResponse.data) {
+    throw new Error(downloadResponse.error?.message || "Unable to download attached media from Supabase Storage.");
+  }
+
+  return [
+    {
+      id: mediaAsset.id,
+      fileName: mediaAsset.file_name,
+      mimeType: mediaAsset.mime_type,
+      sizeBytes: mediaAsset.size_bytes,
+      storagePath: mediaAsset.storage_path,
+      data: await downloadResponse.data.arrayBuffer(),
+    },
+  ];
 }
 
 function summarizeFailure(results: PlatformPublishResult[]) {
@@ -70,6 +123,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           source: "server-publisher",
           selectedPlatforms: post.selected_platforms,
           scheduledAt: post.scheduled_at,
+          mediaAssetId: getMediaAssetId(post.metadata),
         },
       })
       .select("id")
@@ -87,11 +141,18 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       .update({ status: "publishing", publish_attempts: attemptNumber, last_error: null })
       .eq("id", post.id);
 
+    const mediaAssets = await loadPublishMediaAssets(
+      supabaseAdmin,
+      organizationId,
+      getMediaAssetId(post.metadata),
+    );
+
     const results = await publishToSelectedPlatforms({
       id: post.id,
       message: post.message,
       scheduledAt: post.scheduled_at,
       selectedPlatforms: post.selected_platforms,
+      mediaAssets,
       location: post.location ?? undefined,
     });
 
@@ -126,6 +187,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           source: "server-publisher",
           selectedPlatforms: post.selected_platforms,
           scheduledAt: post.scheduled_at,
+          mediaAssetId: getMediaAssetId(post.metadata),
           results,
         },
       })

@@ -2,11 +2,21 @@ export type PlatformName = "facebook" | "instagram" | "linkedin" | "tiktok" | "x
 
 export type PublishStatus = "published" | "failed" | "retrying";
 
+export interface PublishMediaAsset {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storagePath: string;
+  data: ArrayBuffer;
+}
+
 export interface PlatformPublishRequest {
   platform: PlatformName;
   message: string;
   scheduledFor: string;
   mediaUrls?: string[];
+  mediaAssets?: PublishMediaAsset[];
   location?: string;
 }
 

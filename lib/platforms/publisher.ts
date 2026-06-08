@@ -1,5 +1,5 @@
 import { platformRegistry } from "./index";
-import type { PlatformName, PlatformPublishRequest, PlatformPublishResult } from "./types";
+import type { PlatformName, PlatformPublishRequest, PlatformPublishResult, PublishMediaAsset } from "./types";
 
 const adaptersByPlatform = new Map(platformRegistry.map((adapter) => [adapter.platform, adapter]));
 
@@ -9,6 +9,7 @@ export interface PublishScheduledPostInput {
   scheduledAt: string;
   selectedPlatforms: PlatformName[];
   mediaUrls?: string[];
+  mediaAssets?: PublishMediaAsset[];
   location?: string;
 }
 
@@ -35,6 +36,7 @@ export async function publishToSelectedPlatforms(input: PublishScheduledPostInpu
       message: input.message,
       scheduledFor: input.scheduledAt,
       mediaUrls: input.mediaUrls,
+      mediaAssets: input.mediaAssets,
       location: input.location,
     };
 
