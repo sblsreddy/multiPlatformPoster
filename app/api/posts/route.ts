@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { triggerScheduledWebhook } from "@/lib/n8n/client";
 import { getAuthenticatedUser, getUserOrganizationId } from "@/lib/supabase/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -14,7 +13,7 @@ const createPostSchema = z.object({
   scheduledAt: z.string().min(1),
   selectedPlatforms: z.array(platformSchema).min(1),
   status: z.enum(["draft", "scheduled"]).default("scheduled"),
-  dispatchWebhook: z.boolean().default(true),
+  dispatchWebhook: z.boolean().default(false),
   mediaAssetId: z.string().uuid().nullable().optional(),
   campaignId: z.string().uuid().nullable().optional(),
 });
@@ -112,19 +111,21 @@ export async function POST(request: Request) {
       }
     }
 
-    if (payload.status === "scheduled" && payload.dispatchWebhook) {
+    if (payload.status === "scheduled") {
       const attemptResponse = await supabaseAdmin
         .from("publish_attempts")
         .insert({
           organization_id: organizationId,
           scheduled_post_id: postResponse.data.id,
-          attempt_number: 1,
+          attempt_number: 0,
           status: "pending",
           payload: {
             source: "web-app",
             scheduledAt,
             selectedPlatforms: payload.selectedPlatforms,
             mediaAssetId: payload.mediaAssetId ?? null,
+            dispatchWebhook: payload.dispatchWebhook,
+            message: "Queued for Vercel Cron publishing. n8n dispatch is intentionally disabled.",
           },
         })
         .select("id")
@@ -132,19 +133,10 @@ export async function POST(request: Request) {
 
       if (attemptResponse.error || !attemptResponse.data) {
         return NextResponse.json(
-          { error: attemptResponse.error?.message || "Unable to create publish attempt." },
+          { error: attemptResponse.error?.message || "Unable to create pending publish attempt." },
           { status: 500 },
         );
       }
-
-      const webhookResponse = await triggerScheduledWebhook({
-        scheduledPostId: postResponse.data.id,
-        campaignId: payload.campaignId ?? undefined,
-        organizationId,
-        trigger: "scheduled-post-ready",
-      });
-
-      const webhookStatus = webhookResponse.accepted ? "processed" : "failed";
 
       await supabaseAdmin.from("webhook_events").insert({
         organization_id: organizationId,
@@ -154,61 +146,21 @@ export async function POST(request: Request) {
           organizationId,
           selectedPlatforms: payload.selectedPlatforms,
           mediaAssetId: payload.mediaAssetId ?? null,
+          scheduler: "vercel-cron",
         },
-        signature: process.env.N8N_WEBHOOK_SECRET ?? null,
-        status: webhookStatus,
-        response_body: webhookResponse,
+        signature: null,
+        status: "processed",
+        response_body: { accepted: true, message: "Scheduled post will be picked up by /api/cron/publish-due." },
       });
 
-      if (!webhookResponse.accepted) {
-        await supabaseAdmin
-          .from("scheduled_posts")
-          .update({
-            last_error: webhookResponse.message,
-          })
-          .eq("id", postResponse.data.id);
-
-        await supabaseAdmin
-          .from("publish_attempts")
-          .update({
-            status: "failed",
-            completed_at: new Date().toISOString(),
-            error_message: webhookResponse.message,
-          })
-          .eq("id", attemptResponse.data.id);
-
-        return NextResponse.json({
-          scheduledPostId: postResponse.data.id,
-          status: payload.status,
-          webhookAccepted: false,
-          message: `Scheduled post saved, but webhook dispatch failed: ${webhookResponse.message}`,
-        });
-      }
-
-      await supabaseAdmin
-        .from("publish_attempts")
-        .update({
-          status: "success",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", attemptResponse.data.id);
-
-      return NextResponse.json({
-        scheduledPostId: postResponse.data.id,
-        status: payload.status,
-        webhookAccepted: true,
-        message: "Scheduled post saved and webhook dispatched.",
-      });
-    }
-
-    if (payload.status === "scheduled") {
       return NextResponse.json({
         scheduledPostId: postResponse.data.id,
         status: payload.status,
         webhookAccepted: false,
-        message: "Scheduled post saved. Webhook dispatch was skipped for direct publishing.",
+        message: "Scheduled post saved for Vercel Cron publishing. n8n dispatch is disabled.",
       });
     }
+
 
     return NextResponse.json({
       scheduledPostId: postResponse.data.id,

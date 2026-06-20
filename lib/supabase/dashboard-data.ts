@@ -99,17 +99,6 @@ function getNullableString(value: unknown) {
   return typeof value === "string" ? value : null;
 }
 
-function getNumber(value: unknown) {
-  return typeof value === "number" ? value : 0;
-}
-
-function getArray(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map((entry) => getString(entry));
-}
 
 function getMetadata(value: unknown) {
   if (value && typeof value === "object" && !Array.isArray(value)) {

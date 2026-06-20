@@ -9,7 +9,7 @@ A production-oriented, responsive Next.js admin dashboard for phased social medi
 - Responsive admin dashboard shell for mobile, tablet, and laptop
 - Clean platform adapter interfaces for Meta, LinkedIn, TikTok, and X
 - Real Facebook Page feed and image publishing adapter plus mock adapters for remaining platforms
-- n8n webhook client utilities
+- Vercel Cron publishing endpoint and shared server publisher utilities
 - CI workflow for lint, typecheck, and build
 - Initial documentation for n8n workflow setup, production checklist, cost estimate, and roadmap
 
@@ -17,7 +17,7 @@ A production-oriented, responsive Next.js admin dashboard for phased social medi
 
 - `app/` — dashboard and page routes
 - `components/` — reusable UI shell and form components
-- `lib/` — Supabase, scheduler, n8n, and platform adapter abstractions
+- `lib/` — Supabase, scheduler, publisher, and platform adapter abstractions
 - `supabase/migrations/` — SQL schema and RLS policies
 - `docs/` — workflow, checklist, cost estimate, and roadmap artifacts
 - `.github/workflows/ci.yml` — GitHub Actions CI
@@ -38,9 +38,8 @@ Copy `.env.example` and set the following values:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `N8N_WEBHOOK_URL`
-- `N8N_WEBHOOK_SECRET`
-- `WEBHOOK_RATE_LIMIT_PER_MINUTE`
+- `CRON_SECRET`
+- `CRON_PUBLISH_BATCH_SIZE`
 - `NEXT_PUBLIC_APP_URL`
 - `FACEBOOK_PAGE_ID`
 - `FACEBOOK_PAGE_ACCESS_TOKEN`
@@ -50,9 +49,9 @@ Copy `.env.example` and set the following values:
 
 The initial schema is defined in `supabase/migrations/20260525_initial_schema.sql`.
 
-## n8n walkthrough
+## n8n migration walkthrough
 
-See `docs/n8n-workflows.md` for the workflow map, payload example, and security notes. For direct server-side testing, use the scheduled post form's **Publish now** action or call `POST /api/posts/{id}/publish` after setting the Facebook environment variables.
+See `docs/n8n-to-nextjs-migration.md` for the extracted workflow logic and migration plan. Vercel Cron calls `GET /api/cron/publish-due` according to `vercel.json`. For direct server-side testing, use the scheduled post form's **Publish now** action or call `POST /api/posts/{id}/publish` after setting the Facebook environment variables.
 
 ## Production checklist
 
@@ -68,9 +67,9 @@ See `docs/roadmap.md`.
 
 ## Phase notes
 
-- Phase 1: Supabase, n8n, RLS, and webhook orchestration hooks
+- Phase 1: Supabase, RLS, and workflow audit hooks
 - Phase 2: Responsive admin UI and Vercel deployment
-- Phase 3: Replace critical n8n workflow pieces with serverless code while preserving adapter interfaces
+- Phase 3: Vercel Cron serverless publishing while preserving adapter interfaces
 
 ## Important implementation note
 
