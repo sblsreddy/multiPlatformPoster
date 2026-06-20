@@ -68,6 +68,7 @@ create table if not exists public.scheduled_posts (
   status text not null default 'draft' check (status in ('draft', 'scheduled', 'publishing', 'published', 'failed', 'retrying')),
   last_error text,
   publish_attempts int not null default 0,
+  next_retry_at timestamptz,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -123,6 +124,18 @@ create table if not exists public.audit_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.notification_events (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  scheduled_post_id uuid references public.scheduled_posts(id) on delete cascade,
+  channel text not null check (channel in ('audit-log', 'slack', 'email', 'pager')),
+  status text not null default 'pending' check (status in ('pending', 'sent', 'failed')),
+  payload jsonb not null default '{}'::jsonb,
+  error_message text,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz
+);
+
 create table if not exists public.webhook_events (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references public.organizations(id) on delete set null,
@@ -173,6 +186,7 @@ alter table public.media_assets enable row level security;
 alter table public.publish_attempts enable row level security;
 alter table public.platform_results enable row level security;
 alter table public.audit_logs enable row level security;
+alter table public.notification_events enable row level security;
 alter table public.webhook_events enable row level security;
 
 create policy "profiles_select_own" on public.profiles
@@ -236,6 +250,12 @@ create policy "audit_logs_select_members" on public.audit_logs
   for select using (public.is_org_member(organization_id));
 
 create policy "audit_logs_manage_admins" on public.audit_logs
+  for all using (public.is_org_admin(organization_id)) with check (public.is_org_admin(organization_id));
+
+create policy "notification_events_select_members" on public.notification_events
+  for select using (public.is_org_member(organization_id));
+
+create policy "notification_events_manage_admins" on public.notification_events
   for all using (public.is_org_admin(organization_id)) with check (public.is_org_admin(organization_id));
 
 create policy "webhook_events_select_members" on public.webhook_events
